@@ -1,0 +1,167 @@
+{
+  "vehicles": [
+    {
+      "vehicle_id": "V01",
+      "vehicle_type": "STANDARD",
+      "capacity": 500,
+      "capacity_unit": "kg",
+      "current_latitude": 26.14,
+      "current_longitude": 91.73,
+      "status": "AVAILABLE",
+      "fuel_level": 80,
+      "availability": true
+    },
+    {
+      "vehicle_id": "V02",
+      "vehicle_type": "OFFROAD",
+      "capacity": 1500,
+      "capacity_unit": "kg",
+      "current_latitude": 25.57,
+      "current_longitude": 91.89,
+      "status": "AVAILABLE",
+      "fuel_level": 95,
+      "availability": true
+    },
+    {
+      "vehicle_id": "V03",
+      "vehicle_type": "MEDICAL",
+      "capacity": 300,
+      "capacity_unit": "kg",
+      "current_latitude": 26.14,
+      "current_longitude": 91.73,
+      "status": "MAINTENANCE",
+      "fuel_level": 20,
+      "availability": false
+    },
+    {
+      "vehicle_id": "V04",
+      "vehicle_type": "HEAVY_SUPPLY",
+      "capacity": 5000,
+      "capacity_unit": "kg",
+      "current_latitude": 26.75,
+      "current_longitude": 94.20,
+      "status": "AVAILABLE",
+      "fuel_level": 10,
+      "availability": true
+    }
+  ],
+  "warehouses": [
+    {
+      "warehouse_id": "WH01",
+      "name": "Guwahati Main Base",
+      "latitude": 26.14,
+      "longitude": 91.73,
+      "status": "ACTIVE"
+    },
+    {
+      "warehouse_id": "WH02",
+      "name": "Shillong Disaster Logistics Base",
+      "latitude": 25.57,
+      "longitude": 91.89,
+      "status": "ACTIVE"
+    },
+    {
+      "warehouse_id": "WH03",
+      "name": "Inactive Outpost",
+      "latitude": 27.47,
+      "longitude": 94.91,
+      "status": "INACTIVE"
+    }
+  ],
+  "resources": [
+    {
+      "resource_id": "R01",
+      "warehouse_id": "WH01",
+      "resource_type": "Medicine",
+      "quantity": 200,
+      "reserved_quantity": 180,
+      "unit": "kg"
+    },
+    {
+      "resource_id": "R02",
+      "warehouse_id": "WH02",
+      "resource_type": "Medicine",
+      "quantity": 1000,
+      "reserved_quantity": 200,
+      "unit": "kg"
+    },
+    {
+      "resource_id": "R03",
+      "warehouse_id": "WH01",
+      "resource_type": "Food",
+      "quantity": 5000,
+      "reserved_quantity": 1000,
+      "unit": "kg"
+    },
+    {
+      "resource_id": "R04",
+      "warehouse_id": "WH03",
+      "resource_type": "Food",
+      "quantity": 5000,
+      "reserved_quantity": 0,
+      "unit": "kg"
+    }
+  ],
+  "requests": [
+    {
+      "request_id": "REQ-100",
+      "destination": "Normal Village",
+      "latitude": 26.20,
+      "longitude": 91.80,
+      "requested_resource": "Food",
+      "quantity": 100,
+      "unit": "kg",
+      "priority": "LOW",
+      "status": "PENDING",
+      "context": {
+          "population": 1200,
+          "sos_count": 0,
+          "medical_emergency_count": 0,
+          "medicine_supply_days_remaining": 14,
+          "food_supply_days_remaining": 8,
+          "distance_km": 15,
+          "road_condition": 1,
+          "terrain_difficulty": 1,
+          "rainfall_mm": 0,
+          "flood_risk": 0,
+          "landslide_risk": 0,
+          "road_blockage": 0,
+          "connectivity": 1,
+          "elevation_change_m": 50,
+          "bridge_condition": 1,
+          "weather_severity": 0,
+          "disaster_severity": 0
+      }
+    },
+    {
+      "request_id": "REQ-104",
+      "destination": "Haflong Remote Area",
+      "latitude": 25.17,
+      "longitude": 93.01,
+      "requested_resource": "Medicine",
+      "quantity": 200,
+      "unit": "kg",
+      "priority": "CRITICAL",
+      "status": "PENDING",
+      "context": {
+          "population": 8500,
+          "sos_count": 34,
+          "medical_emergency_count": 18,
+          "medicine_supply_days_remaining": 1,
+          "food_supply_days_remaining": 2,
+          "distance_km": 120,
+          "road_condition": 8,
+          "terrain_difficulty": 9,
+          "rainfall_mm": 150,
+          "flood_risk": 7,
+          "landslide_risk": 8,
+          "road_blockage": 7,
+          "connectivity": 8,
+          "elevation_change_m": 800,
+          "bridge_condition": 6,
+          "weather_severity": 8,
+          "disaster_severity": 9
+      }
+    }
+  ]
+}
