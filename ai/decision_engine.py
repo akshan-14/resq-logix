@@ -16,13 +16,19 @@ class ResQDecisionEngine:
         self.acc_model = AccessibilityMLModel()
         self.pri_model = PriorityIntelligenceModel()
 
-        # Capability mapping prototype
+        # Capability mapping prototype (supports DEMO and LIVE types)
         self.capability_map = {
             "STANDARD": {"max_risk": 40, "medical_ok": False},
             "OFFROAD": {"max_risk": 90, "medical_ok": False},
             "MEDICAL": {"max_risk": 60, "medical_ok": True},
             "HEAVY_SUPPLY": {"max_risk": 50, "medical_ok": False},
-            "EMERGENCY": {"max_risk": 100, "medical_ok": True}
+            "EMERGENCY": {"max_risk": 100, "medical_ok": True},
+            # LIVE API Types
+            "Ambulance": {"max_risk": 60, "medical_ok": True},
+            "Supply Truck": {"max_risk": 50, "medical_ok": False},
+            "Rescue Vehicle": {"max_risk": 90, "medical_ok": True},
+            "Water Tanker": {"max_risk": 50, "medical_ok": False},
+            "Van": {"max_risk": 40, "medical_ok": False}
         }
 
     def _normalize_unit(self, value, unit):
@@ -72,7 +78,7 @@ class ResQDecisionEngine:
         warehouse_rejection_reasons = set()
         
         for w in warehouses:
-            if w.get('status') != 'ACTIVE':
+            if w.get('status') not in ['ACTIVE', 'OPERATIONAL']:
                 continue
             
             # Check inventory for this warehouse ensuring unit compatibility
@@ -95,7 +101,7 @@ class ResQDecisionEngine:
                     "score": 1000 - dist # Simple ranking: closer is better
                 })
             elif unit_mismatch_found:
-                warehouse_rejection_reasons.add(f"Incompatible unit comparison prevented inventory check at {w.get('warehouse_id')}.")
+                warehouse_rejection_reasons.add(f"{w.get('warehouse_id')}: inventory unit is incompatible with requested unit {request.get('unit')}")
                 
         if not feasible_warehouses:
             reasons = ["No operational warehouse has sufficient available inventory for requested resource."]
@@ -124,7 +130,7 @@ class ResQDecisionEngine:
                 
             v_base_cap, v_base_unit = self._normalize_unit(v.get('capacity', 0), v.get('capacity_unit', ''))
             if v_base_unit != req_base_unit:
-                vehicle_rejection_reasons.add(f"Vehicle {v.get('vehicle_id')} rejected due to incompatible capacity unit ({v.get('capacity_unit')} vs {request.get('unit')}).")
+                vehicle_rejection_reasons.add(f"{v.get('vehicle_id')}: capacity unit {v.get('capacity_unit')} is incompatible with requested unit {request.get('unit')}")
                 continue
                 
             if v_base_cap < req_base_qty:
@@ -135,6 +141,7 @@ class ResQDecisionEngine:
             caps = self.capability_map.get(v_type, self.capability_map["STANDARD"])
             
             if acc_risk > caps['max_risk']:
+                vehicle_rejection_reasons.add(f"{v.get('vehicle_id')}: sufficient capacity, but rejected because route risk {acc_risk} exceeds vehicle capability limit {caps['max_risk']}")
                 continue # Terrain too difficult for this vehicle
                 
             dist_to_wh = haversine_distance(v['current_latitude'], v['current_longitude'], best_wh['latitude'], best_wh['longitude'])
@@ -143,6 +150,7 @@ class ResQDecisionEngine:
             
             # Very basic fuel check mapping
             if v.get('fuel_level', 100) < (total_dist * 0.1): # assuming 10% per km for prototype
+                vehicle_rejection_reasons.add(f"{v.get('vehicle_id')}: sufficient capacity, but rejected because fuel level is insufficient for distance {total_dist:.1f}km")
                 continue
                 
             # Score Vehicle
@@ -157,11 +165,14 @@ class ResQDecisionEngine:
             })
             
         if not feasible_vehicles:
+            reasons = ["No available vehicle has sufficient capacity or capability for this route."]
+            if vehicle_rejection_reasons:
+                reasons.extend(list(vehicle_rejection_reasons))
             return {
                 "request_id": req_id,
                 "recommendation_status": "NO_FEASIBLE_VEHICLE",
                 "recommendation": None,
-                "reasons": ["No available vehicle has sufficient capacity or capability for this route."]
+                "reasons": reasons
             }
             
         # Select best vehicle

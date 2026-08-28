@@ -59,6 +59,25 @@ function App() {
 
   // Logistics UI Filters & Selection
   const [vehicleFilter, setVehicleFilter] = useState('ALL');
+  const [aiRecommendReq, setAiRecommendReq] = useState(null);
+  const [aiDecision, setAiDecision] = useState(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const fetchAiRecommendation = async (req) => {
+    setAiRecommendReq(req);
+    setIsAiLoading(true);
+    setAiDecision(null);
+    try {
+      const response = await fetch(`${API_BASE}/logistics/ai-recommend/${req.request_id}`);
+      const data = await response.json();
+      setAiDecision(data);
+    } catch (e) {
+      setAiDecision({ error: e.message || 'Failed to fetch AI recommendation' });
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
   const [requestFilter, setRequestFilter] = useState('ALL');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState(null);
 
@@ -554,6 +573,13 @@ function App() {
                                 title="Auto-assigns first available vehicle and warehouse with verified stock"
                               >
                                 Smart Auto-Assign
+                              </button>
+                              <button
+                                className="btn btn-outline"
+                                onClick={() => fetchAiRecommendation(req)}
+                                style={{ borderColor: '#6366f1', color: '#6366f1' }}
+                              >
+                                AI Recommend 🧠
                               </button>
                               <button
                                 className="btn btn-outline"
@@ -1374,6 +1400,96 @@ function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 3: AI RECOMMENDATION PANEL                          */}
+      {/* ========================================================= */}
+      {aiRecommendReq && (
+        <div className="modal-overlay" onClick={() => setAiRecommendReq(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal-header">
+              <h3>AI DECISION (PROTOTYPE)</h3>
+              <button 
+                className="btn btn-outline" 
+                onClick={() => setAiRecommendReq(null)}
+                style={{ padding: '4px 8px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '15px', borderRadius: '6px', marginBottom: '16px' }}>
+              <div><strong>Request:</strong> {aiRecommendReq.request_id}</div>
+              <div><strong>Priority:</strong> {aiRecommendReq.priority}</div>
+              <div><strong>Resource:</strong> {aiRecommendReq.quantity} {aiRecommendReq.unit} of {aiRecommendReq.requested_resource}</div>
+              <div><strong>Destination:</strong> {aiRecommendReq.destination}</div>
+            </div>
+
+            {isAiLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <p>🧠 Processing Accessibility, Priority & Decision Constraints...</p>
+              </div>
+            ) : aiDecision ? (
+              <div>
+                <div style={{ marginBottom: '12px' }}>
+                  <strong>Decision: </strong> 
+                  <span className={`badge ${aiDecision.recommendation_status === 'RECOMMENDATION_READY' ? 'badge-delivered' : 'badge-cancelled'}`}>
+                    {aiDecision.recommendation_status || 'UNKNOWN'}
+                  </span>
+                </div>
+                
+                {aiDecision.recommendation ? (
+                  <div style={{ background: '#e0f2fe', padding: '12px', borderRadius: '6px', marginBottom: '12px', borderLeft: '4px solid #0284c7' }}>
+                    <div style={{ marginBottom: '8px' }}><strong>Recommended Vehicle:</strong> {aiDecision.recommendation.vehicle_id}</div>
+                    <div style={{ marginBottom: '8px' }}><strong>Recommended Warehouse:</strong> {aiDecision.recommendation.warehouse_id}</div>
+                    <div><strong>Score:</strong> {aiDecision.recommendation.score}</div>
+                  </div>
+                ) : (
+                  <div style={{ background: '#fef2f2', padding: '12px', borderRadius: '6px', marginBottom: '12px', borderLeft: '4px solid #ef4444' }}>
+                    <strong>Recommended Vehicle:</strong> NONE<br/>
+                    <strong>Recommended Warehouse:</strong> NONE
+                  </div>
+                )}
+
+                {aiDecision.reasons && aiDecision.reasons.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <strong>Reasons:</strong>
+                    <ul style={{ paddingLeft: '20px', marginTop: '4px' }}>
+                      {aiDecision.reasons.map((r, i) => (
+                        <li key={i} style={{ marginBottom: '4px', color: r.includes('rejected') ? '#ef4444' : 'inherit' }}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
+                <div style={{ background: '#fffbeb', padding: '12px', borderRadius: '6px', borderLeft: '4px solid #f59e0b', fontSize: '0.9em' }}>
+                  <strong>Warnings:</strong>
+                  <ul style={{ paddingLeft: '20px', margin: '4px 0 0 0' }}>
+                    <li>Prototype limitations: ML Context is synthetic</li>
+                    <li>Strict safety constraints enforced on capacity units and route capability limits</li>
+                  </ul>
+                </div>
+                
+                <div style={{ textAlign: 'center', marginTop: '16px', fontWeight: 'bold', color: '#6366f1' }}>
+                  STATUS: Awaiting Dispatcher Approval
+                </div>
+              </div>
+            ) : (
+              <p>Failed to load AI decision.</p>
+            )}
+
+            <div className="modal-footer" style={{ marginTop: '20px' }}>
+              <button 
+                type="button" 
+                className="btn btn-outline" 
+                onClick={() => setAiRecommendReq(null)}
+              >
+                Close (Do Not Dispatch)
+              </button>
+            </div>
           </div>
         </div>
       )}

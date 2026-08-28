@@ -193,8 +193,14 @@ This document defines the formal data contract between the **Logistics Managemen
 
 ## 5. Decision Engine Execution Workflow (Recommendation to Dispatch)
 
+**IMPORTANT: NO AUTO-DISPATCH (HUMAN-IN-THE-LOOP)**
+
+The AI Decision Engine (Phase 6) does **NOT** automatically assign vehicles, reserve inventory, or dispatch resources. It is strictly a recommendation engine. The system is a prototype, not production-ready.
+
 When the AI Decision Engine determines an optimal allocation `(Request R, Vehicle V, Warehouse W)`:
-1. The AI module issues an HTTP PATCH to assign the delivery:
+1. The AI module outputs a **human-readable dispatch recommendation** including constraints, safety warnings, and the decision score.
+2. A human dispatcher reviews the recommendation in the Command Dashboard.
+3. Only upon explicit human approval, the system issues an HTTP PATCH to assign the delivery:
    ```http
    PATCH /api/v1/logistics/requests/REQ-NER-001
    Content-Type: application/json
@@ -205,10 +211,15 @@ When the AI Decision Engine determines an optimal allocation `(Request R, Vehicl
      "source_warehouse_id": "WH-GHY-01"
    }
    ```
-2. The Logistics backend automatically:
+4. The Logistics backend automatically:
    - Verifies vehicle availability.
    - Validates that `WH-GHY-01` has sufficient `available_quantity`.
    - Reserves the required inventory quantity (`reserved_quantity += quantity`).
    - Marks the vehicle as `ON_ROUTE` (`availability = 0`).
    - Logs audit events to `logistics_events`.
-   - Returns `200 OK` on success or `400 Bad Request` with exact failure context if inventory or vehicle state changed.
+
+## 6. Adapter Configuration (LIVE vs DEMO)
+
+The `LogisticsContextAdapter` manages the integration:
+- **LIVE Mode**: Enabled by setting the `LOGISTICS_API_URL` environment variable (e.g., `LOGISTICS_API_URL=http://localhost:3000`). It consumes the live endpoint above. Handles connection failures and malformed JSON gracefully.
+- **DEMO Mode**: If the variable is unset or connection fails, the adapter gracefully falls back to deterministic synthetic data (`ai/data/logistics_context_demo.json`).

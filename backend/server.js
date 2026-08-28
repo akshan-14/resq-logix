@@ -1308,6 +1308,20 @@ const getLogisticsAIContextHandler = (req, res) => {
 app.get('/api/v1/logistics/ai-context', getLogisticsAIContextHandler);
 app.get('/logistics/ai-context', getLogisticsAIContextHandler);
 
+// 3. GET /api/v1/logistics/ai-recommend/:id (Runs Phase 6 Decision Engine)
+app.get('/api/v1/logistics/ai-recommend/:id', (req, res) => {
+  const reqId = req.params.id;
+  try {
+    const script = path.resolve(__dirname, '../ai/run_decision.py');
+    const result = execSync(`python "${script}" "${reqId}"`, { encoding: 'utf-8' });
+    const parsed = JSON.parse(result.trim());
+    res.json(parsed);
+  } catch (error) {
+    console.error("AI Decision failed:", error.message);
+    res.status(500).json({ error: "Failed to generate AI recommendation." });
+  }
+});
+
 
 app.listen(port, () => {
   console.log(`Backend API listening on port ${port}`);
