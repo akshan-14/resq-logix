@@ -1,0 +1,17 @@
+﻿import csv
+import json
+
+csv_data = """date,state,district,type,severity,fatalities,impact_desc
+2022-05-15,Assam,Cachar,FLOOD,CRITICAL,30,Barak river overflowed submerging Silchar
+2022-05-18,Assam,Dima Hasao,LANDSLIDE,CRITICAL,15,Massive landslides washed away railway and roads
+2023-06-12,Meghalaya,East Khasi Hills,LANDSLIDE,HIGH,5,NH-06 blocked near Sonapur
+2023-06-14,Assam,Kamrup Metropolitan,FLOOD,MEDIUM,0,Urban flooding in Guwahati
+2021-07-03,Arunachal Pradesh,Papum Pare,LANDSLIDE,HIGH,2,Itanagar-Naharlagun road blocked
+2023-08-20,Mizoram,Aizawl,LANDSLIDE,HIGH,3,Sinking zone activated on NH-54
+2022-06-25,Assam,Cachar,FLOOD,HIGH,10,Secondary flooding wave
+2023-06-20,Meghalaya,East Khasi Hills,LANDSLIDE,MEDIUM,0,Minor debris flow
+2021-08-15,Assam,Kamrup Metropolitan,FLOOD,LOW,0,Waterlogging
+"""
+
+with open('ai/data_pipeline/static_data/historical_disasters.csv', 'w', encoding='utf-8') as f:
+    f.write(csv_data)

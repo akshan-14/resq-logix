@@ -1,0 +1,1 @@
+const sqlite3 = require('sqlite3').verbose(); const path = require('path'); const db = new sqlite3.Database(path.resolve(__dirname, 'resq-logix.db')); db.all('SELECT request_id FROM logistics_requests', (err, rows) => { console.log(rows); });
