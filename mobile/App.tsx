@@ -1,3 +1,4 @@
+import { ErrorBoundary } from './src/ErrorBoundary';
 import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -38,6 +39,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'ResQ-Logix Field App' }} />
@@ -48,5 +50,6 @@ export default function App() {
         <Stack.Screen name="Driver" component={DriverScreen} options={{ title: 'Driver Mode' }} />
       </Stack.Navigator>
     </NavigationContainer>
+    </ErrorBoundary>
   );
 }
