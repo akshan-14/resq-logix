@@ -46,7 +46,7 @@ export const useTranslation = () => {
   }, []);
 
   const t = (key: string) => {
-    return locales[lang]?.[key] || locales['en']?.[key] || FALLBACK_EN[key] || key.toUpperCase().replace(/_/g, ' ');
+    return locales[lang]?.[key] || locales['en']?.[key] || key.toUpperCase().replace(/_/g, ' ');
   };
 
   return { t, lang, setLanguage };
