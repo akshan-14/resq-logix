@@ -1,22 +1,99 @@
-# ResQ-Logix
+﻿# 🚨 ResQ-Logix: AI-Powered Disaster Logistics Platform
 
-**Smart India Hackathon 2026 - Problem Statement SIH2026002**
+**ResQ-Logix** is a modern, offline-first command centre and logistics accessibility platform built specifically for disaster response in the North Eastern Region (NER) of India. 
 
-ResQ-Logix is an offline disaster emergency communication system that helps trapped victims send SOS information when cellular networks and internet connectivity are unavailable.
+Designed for MoDNER officials, district disaster management teams, and field responders, this platform bridges the gap between chaotic disaster data and actionable, life-saving logistics during floods, landslides, and critical network outages.
 
-## Core Flow
-1. **Normal Internet SOS**: If connected, mobile app hits REST API directly.
-2. **Offline SOS Flow**: Victim Mobile App -> BLE SOS Broadcast -> Nearby Mobile Phones (Mesh).
-3. **Store-and-Forward**: Phones act as relay nodes. They check their cache to prevent duplicate storms, decrement the TTL, increment the Hop Count, and broadcast.
-4. **Gateway**: A dedicated hardware node (ESP32/LoRa) picks up the BLE signal and bridges it to the internet or long-range radio.
-5. **AI Severity & Accessibility Intelligence**: The backend pipes emergency details to a Python classifier that ranks incident severity. Additionally, an Accessibility Intelligence engine computes risk scores for delivery routes based on terrain, weather, and landslides (crucial for the North Eastern Region logistics).
-6. **Command Dashboard**: The React UI polls the backend and visualizes the crisis, displaying the exact route the message took to reach safety.
+---
 
-## Project Structure
-- `frontend/`: Rescue Command Dashboard (React + Vite)
-- `backend/`: API for receiving SOS and managing rescue status (Node.js/Express)
-- `mobile/`: Victim Android App (React Native/Android)
-- `mesh/`: Software simulation of the BLE store-and-forward mesh (Python)
-- `database/`: Database schema and SQLite file
-- `ai/`: AI severity classifier & Accessibility Intelligence (Python)
-- `docs/`: Project documentation (including [Architecture](docs/architecture.md), [API](docs/api.md), and [Accessibility Intelligence](docs/accessibility.md))
+## 🌟 Key Features
+
+### 1. 🗺️ Command Centre Dashboard
+A comprehensive React-based web dashboard that provides a God's-eye view of disaster zones.
+- **Interactive Map:** Centered on Assam, Meghalaya, Arunachal Pradesh, and Manipur with precise terrain mapping.
+- **Live Overlays:** Real-time markers for relief camps, flooded zones, blocked roads, and deployed vehicles.
+- **Status KPIs:** Instantly track active deliveries, critical demands, and operational hubs.
+
+### 2. 🧠 AI Smart Dispatch & Risk Engine
+- **Deterministic Routing:** Evaluates bridge failures, landslide risks, and flood levels to safely route supply trucks.
+- **Auto-Assignment:** Intelligently matches the closest available vehicles (trucks, boats, helicopters) to critical demands based on terrain constraints.
+- **Copernicus Satellite Integration:** Pipeline ready to analyze real-world elevation and flood proxy data.
+
+### 3. 📡 Offline-First Mobile App (BLE Mesh)
+A React Native mobile application built for field responders operating in areas with **zero cellular connectivity**.
+- **Bluetooth Low Energy (BLE) Mesh:** Responders can broadcast SOS alerts and incident reports directly to nearby devices.
+- **Hop-Count Deduplication:** Ensures reports traverse the mesh network efficiently until they reach an internet-connected gateway.
+- **Trusted Reporter Tier:** Official NDRF/SDRF personnel have elevated priority in the network, filtering out crowdsourced noise.
+- **Delivery Confirmation Loop:** Drivers can mark critical medical/food supplies as delivered via GPS, syncing automatically when connectivity is restored.
+
+### 4. 📊 Historical Analytics & Simulation
+- **Historical Risk Analysis:** Visual charts comparing Baseline Risk proxies against Actual Successful Deliveries.
+- **Scenario Simulator:** Stress-test logistics responses by simulating a Category 4 Cyclone or a major Brahmaputra flood event.
+
+---
+
+## 🛠️ Technology Stack
+
+**Frontend:**
+- React (Vite)
+- React-Leaflet (OpenStreetMap)
+- Recharts (Data Visualization)
+- Lucide React (Icons)
+- **Deployed on Vercel**
+
+**Backend:**
+- Node.js & Express
+- SQLite (Self-Seeding for Demos)
+- UUID & RESTful API Architecture
+- **Deployed on Render**
+
+**Mobile (Field App):**
+- React Native (Expo)
+- React Navigation
+- React Native BLE PLX / Peripheral (Mesh Networking)
+- AsyncStorage (Offline Queuing)
+
+**AI & Data Pipeline:**
+- Python 3
+- HDX (Humanitarian Data Exchange) Simulation
+- Deterministic Risk Calculation Algorithms
+
+---
+
+## 🚀 Live Demo
+
+- **Command Centre (Web):** [https://resq-logix.vercel.app](https://resq-logix.vercel.app)
+- **API (Backend):** [https://resq-logix-backend.onrender.com](https://resq-logix-backend.onrender.com)
+
+---
+
+## 💻 Local Setup
+
+1. **Clone the repository:**
+   \\\ash
+   git clone https://github.com/akshan-14/resq-logix.git
+   \\\
+
+2. **Run the Backend:**
+   \\\ash
+   cd backend
+   npm install
+   npm run start:prod
+   \\\
+
+3. **Run the Frontend:**
+   \\\ash
+   cd frontend
+   npm install
+   npm run dev
+   \\\
+
+4. **Build the Mobile App:**
+   \\\ash
+   cd mobile
+   npm install
+   eas build -p android --profile preview
+   \\\
+
+---
+*Built with ❤️ for disaster resilience.*
