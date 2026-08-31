@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "start:prod": "node seed.js && node server.js",
+    "start:prod": "node seed.js && (node gps_simulator.js &) && node server.js",
     "simulator": "node gps_simulator.js"
   },
   "dependencies": {
