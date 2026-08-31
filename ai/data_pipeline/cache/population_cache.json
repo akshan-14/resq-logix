@@ -1,0 +1,12 @@
+{
+  "28.7_77.1": {
+    "value": 11000000,
+    "source": "Nominatim (Delhi) + Open-Meteo",
+    "timestamp": "2026-08-29T09:35:06.045673Z"
+  },
+  "28.0_77.0": {
+    "value": 16260,
+    "source": "Nominatim (Nuh) + Open-Meteo",
+    "timestamp": "2026-08-29T10:00:30.828579Z"
+  }
+}

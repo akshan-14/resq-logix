@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "resq-mobile",
+    "slug": "resq-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "bluetooth-central",
+          "bluetooth-peripheral"
+        ],
+        "NSBluetoothAlwaysUsageDescription": "ResQ uses Bluetooth to form a mesh network with nearby responders in disaster zones with no internet.",
+        "NSBluetoothPeripheralUsageDescription": "ResQ uses Bluetooth to broadcast disaster reports to nearby responders."
+      }
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_ADVERTISE",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ],
+      "package": "com.akshan_14.resqmobile"
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "ResQ needs Bluetooth to form an offline mesh network."
+        }
+      ],
+      "expo-dev-client",
+      "expo-localization"
+    ],
+    "web": {},
+    "extra": {
+      "eas": {
+        "projectId": "a42ebf0b-5f6c-42f8-ad4a-8d5806383d2d"
+      }
+    }
+  }
+}

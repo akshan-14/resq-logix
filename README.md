@@ -9,7 +9,7 @@ ResQ-Logix is an offline disaster emergency communication system that helps trap
 2. **Offline SOS Flow**: Victim Mobile App -> BLE SOS Broadcast -> Nearby Mobile Phones (Mesh).
 3. **Store-and-Forward**: Phones act as relay nodes. They check their cache to prevent duplicate storms, decrement the TTL, increment the Hop Count, and broadcast.
 4. **Gateway**: A dedicated hardware node (ESP32/LoRa) picks up the BLE signal and bridges it to the internet or long-range radio.
-5. **AI Severity Scoring**: The backend pipes the emergency details to a Python classifier that ranks the incident (1-10) based on victims, injuries, fire, and structural collapse keywords.
+5. **AI Severity & Accessibility Intelligence**: The backend pipes emergency details to a Python classifier that ranks incident severity. Additionally, an Accessibility Intelligence engine computes risk scores for delivery routes based on terrain, weather, and landslides (crucial for the North Eastern Region logistics).
 6. **Command Dashboard**: The React UI polls the backend and visualizes the crisis, displaying the exact route the message took to reach safety.
 
 ## Project Structure
@@ -18,5 +18,5 @@ ResQ-Logix is an offline disaster emergency communication system that helps trap
 - `mobile/`: Victim Android App (React Native/Android)
 - `mesh/`: Software simulation of the BLE store-and-forward mesh (Python)
 - `database/`: Database schema and SQLite file
-- `ai/`: AI rule-based severity classifier (Python)
-- `docs/`: Project documentation
+- `ai/`: AI severity classifier & Accessibility Intelligence (Python)
+- `docs/`: Project documentation (including [Architecture](docs/architecture.md), [API](docs/api.md), and [Accessibility Intelligence](docs/accessibility.md))
