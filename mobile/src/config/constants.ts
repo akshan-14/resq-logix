@@ -1,0 +1,1 @@
+export const OFFICIAL_ACCESS_CODE = 'SIH26002_DEMO';
