@@ -1,7 +1,7 @@
 import { BleManager, Device, State, Characteristic } from 'react-native-ble-plx';
 import { FieldReport } from '../models/FieldReport';
 import { Platform, PermissionsAndroid, Alert } from 'react-native';
-import ReactNativeBlePeripheral from 'react-native-ble-peripheral';
+
 import { Buffer } from 'buffer';
 
 // Constants
@@ -262,11 +262,11 @@ export class BleService {
       const base64Str = Buffer.from(jsonStr).toString('base64');
       
       // Add GATT Service & Characteristic for peripheral
-      await ReactNativeBlePeripheral.addService(RESQ_SERVICE_UUID, true);
-      await ReactNativeBlePeripheral.addCharacteristicToService(
+      // await ReactNativeBlePeripheral.addService(RESQ_SERVICE_UUID, true);
+      // await ReactNativeBlePeripheral.addCharacteristicToService(
         RESQ_SERVICE_UUID,
         RESQ_CHARACTERISTIC_UUID,
-        16 | 1, // Read | Broadcast properties
+        // 16 | 1
         1 // Readable permissions
       );
       
@@ -274,7 +274,7 @@ export class BleService {
       // Note: This relies on the specific behavior of the peripheral library
       // For this prototype, we simulate the GATT payload being served
       
-      await ReactNativeBlePeripheral.start({
+      // await ReactNativeBlePeripheral.start({
         serviceUuids: [RESQ_SERVICE_UUID],
       });
       
@@ -291,7 +291,7 @@ export class BleService {
 
   public async stopAdvertising() {
     try {
-      await ReactNativeBlePeripheral.stop();
+      // await ReactNativeBlePeripheral.stop();
       this.status.isAdvertising = false;
       this.notifyStatus();
     } catch (e) {
