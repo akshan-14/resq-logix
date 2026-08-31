@@ -57,6 +57,10 @@ function App() {
 
   // Logistics State
   const [vehicles, setVehicles] = useState([]);
+  // GPS Tracking State
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [selectedVehicleHistory, setSelectedVehicleHistory] = useState([]);
+
   const [warehouses, setWarehouses] = useState([]);
   const [resources, setResources] = useState([]);
   const [logisticsRequests, setLogisticsRequests] = useState([]);
@@ -154,10 +158,7 @@ function App() {
         fetch(`${API_BASE}/logistics/events?limit=25`)
       ]);
 
-      if (vehRes.ok) {
-        const d = await vehRes.json();
-        setVehicles(d.data || []);
-      }
+      
       if (whRes.ok) {
         const d = await whRes.json();
         setWarehouses(d.data || []);
@@ -200,6 +201,34 @@ function App() {
   }, []);
 
   // SOS Status Update
+
+  // Set up SSE for live vehicles
+  useEffect(() => {
+    const sse = new EventSource(`${API_BASE.replace('/api/v1', '/api/v1/live')}/vehicles`);
+    sse.onmessage = (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload.type === 'VEHICLES_UPDATE') {
+          setVehicles(payload.data);
+        }
+      } catch (err) {}
+    };
+    return () => sse.close();
+  }, []);
+
+  // Fetch history when vehicle selected
+  useEffect(() => {
+    if (selectedVehicleId) {
+      fetch(`${API_BASE}/vehicles/${selectedVehicleId}/locations?limit=50`)
+        .then(r => r.json())
+        .then(d => {
+          if(d.status === 'success') setSelectedVehicleHistory(d.data);
+        });
+    } else {
+      setSelectedVehicleHistory([]);
+    }
+  }, [selectedVehicleId]);
+
   const updateSOSStatus = async (messageId, newStatus) => {
     try {
       const res = await fetch(`${API_BASE}/sos/${messageId}/status`, {
