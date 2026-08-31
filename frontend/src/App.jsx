@@ -148,7 +148,7 @@ function App() {
   // Fetch Logistics Data
   const fetchLogistics = async () => {
     try {
-      const [vehRes, whRes, resRes, reqRes, sumRes, aiRes, evtRes] = await Promise.all([
+      const [whRes, resRes, reqRes, sumRes, aiRes, evtRes] = await Promise.all([
         /* fetch(`${API_BASE}/vehicles`) removed for SSE */
         fetch(`${API_BASE}/warehouses`),
         fetch(`${API_BASE}/resources`),
