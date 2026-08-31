@@ -24,10 +24,7 @@
         "BLUETOOTH_ADMIN",
         "BLUETOOTH_SCAN",
         "BLUETOOTH_CONNECT",
-        "BLUETOOTH_ADVERTISE",
-        "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_ADMIN",
-        "android.permission.BLUETOOTH_CONNECT"
+        "BLUETOOTH_ADVERTISE"
       ],
       "package": "com.akshan_14.resqmobile"
     },
