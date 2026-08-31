@@ -71,6 +71,21 @@ const db = new sqlite3.Database(dbPath, (err) => {
         )
       `);
 
+      // Create vehicle_locations table
+      db.run(`
+        CREATE TABLE IF NOT EXISTS vehicle_locations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          vehicle_id TEXT NOT NULL,
+          latitude REAL NOT NULL,
+          longitude REAL NOT NULL,
+          speed REAL,
+          heading REAL,
+          gps_timestamp TEXT NOT NULL,
+          server_timestamp TEXT NOT NULL,
+          FOREIGN KEY (vehicle_id) REFERENCES vehicles (vehicle_id) ON DELETE CASCADE
+        )
+      `);
+
       // Create warehouses table
       db.run(`
         CREATE TABLE IF NOT EXISTS warehouses (
@@ -147,6 +162,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
       db.run(`CREATE INDEX IF NOT EXISTS idx_resources_type_wh ON resources(resource_type, warehouse_id)`);
       db.run(`CREATE INDEX IF NOT EXISTS idx_logistics_requests_status_prio ON logistics_requests(status, priority)`);
       db.run(`CREATE INDEX IF NOT EXISTS idx_logistics_events_req ON logistics_events(request_id)`);
+      db.run(`CREATE INDEX IF NOT EXISTS idx_vehicle_locations_vid ON vehicle_locations(vehicle_id)`);
 
       console.log('Database tables and indexes initialized.');
     });

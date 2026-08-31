@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import HistoricalAnalyticsPanel from './components/HistoricalAnalyticsPanel';
+import SimulatorPanel from './components/SimulatorPanel';
+import NetworkPanel from './components/NetworkPanel';
+import InventoryPanel from './components/InventoryPanel';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import './App.css';
@@ -35,7 +39,7 @@ function MapViewUpdater({ center, zoom }) {
 
 function App() {
   // Navigation State
-  const [activeTab, setActiveTab] = useState('logistics'); // 'sos' | 'logistics'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'sos' | 'logistics'
   const [logisticsSubTab, setLogisticsSubTab] = useState('requests'); // 'requests' | 'fleet' | 'warehouses' | 'ai'
 
   // Backend Connection
@@ -391,10 +395,10 @@ function App() {
   });
 
   // Calculate Map Center dynamically
-  const mapCenter = activeTab === 'sos' && alerts.length > 0
+  const mapCenter = activeTab === 'dispatch' && alerts.length > 0
     ? [alerts[0].latitude, alerts[0].longitude]
     : [25.5788, 92.5]; // Northeast India Center
-  const mapZoom = activeTab === 'sos' ? 9 : 7;
+  const mapZoom = activeTab === 'dispatch' ? 9 : 7;
 
   return (
     <div className="app-container">
@@ -408,17 +412,23 @@ function App() {
 
           {/* Primary View Switcher */}
           <nav className="nav-tabs">
-            <button 
-              className={`nav-tab-btn ${activeTab === 'logistics' ? 'active' : ''}`}
-              onClick={() => setActiveTab('logistics')}
-            >
-              📦 Logistics & Supply Chain
+            <button className={`nav-tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+              Command Centre
             </button>
-            <button 
-              className={`nav-tab-btn ${activeTab === 'sos' ? 'active' : ''}`}
-              onClick={() => setActiveTab('sos')}
-            >
-              🚨 SOS & Mesh Alerts {activeSOSCount > 0 && `(${activeSOSCount})`}
+            <button className={`nav-tab-btn ${activeTab === 'dispatch' ? 'active' : ''}`} onClick={() => setActiveTab('dispatch')}>
+              Smart Dispatch
+            </button>
+            <button className={`nav-tab-btn ${activeTab === 'network' ? 'active' : ''}`} onClick={() => setActiveTab('network')}>
+              Offline Mesh
+            </button>
+            <button className={`nav-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
+              Inventory
+            </button>
+            <button className={`nav-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`} onClick={() => setActiveTab('analytics')}>
+              Analytics & Reports
+            </button>
+            <button className={`nav-tab-btn ${activeTab === 'simulator' ? 'active' : ''}`} onClick={() => setActiveTab('simulator')}>
+              Scenario Simulator
             </button>
           </nav>
         </div>
@@ -431,12 +441,32 @@ function App() {
       </header>
 
       <div className="main-content">
+        {activeTab === 'analytics' && (
+           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-base)', overflow: 'hidden' }}>
+              <HistoricalAnalyticsPanel logisticsRequests={logisticsRequests} />
+           </div>
+        )}
+        {activeTab === 'simulator' && (
+           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-base)' }}>
+              <SimulatorPanel />
+           </div>
+        )}
+        {activeTab === 'network' && (
+           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-base)' }}>
+              <NetworkPanel />
+           </div>
+        )}
+        {activeTab === 'inventory' && (
+           <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-base)' }}>
+              <InventoryPanel />
+           </div>
+        )}
         {/* SIDEBAR PANEL */}
-        <aside className="sidebar">
+        <aside className="sidebar" style={{ display: ['dashboard', 'dispatch'].includes(activeTab) ? 'flex' : 'none' }}>
           {/* ========================================================= */}
           {/* TAB 1: LOGISTICS MANAGEMENT SIDEBAR VIEW                  */}
           {/* ========================================================= */}
-          {activeTab === 'logistics' && (
+          {activeTab === 'dashboard' && (
             <>
               {/* Logistics KPI Stats Ribbon */}
               <div className="stats-panel">
@@ -917,7 +947,7 @@ function App() {
           {/* ========================================================= */}
           {/* TAB 2: ORIGINAL SOS & MESH ALERTS VIEW (100% INTACT)      */}
           {/* ========================================================= */}
-          {activeTab === 'sos' && (
+          {activeTab === 'dispatch' && (
             <>
               <div style={{ padding: '10px 1rem', background: '#333', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -1027,9 +1057,9 @@ function App() {
         {/* ========================================================= */}
         {/* INTERACTIVE MAP CONTAINER                                 */}
         {/* ========================================================= */}
-        <main className="map-container">
+        <main className="map-container" style={{ display: ['dashboard', 'dispatch'].includes(activeTab) ? 'block' : 'none' }}>
           {/* Map Layer Visibility Controls */}
-          {activeTab === 'logistics' && (
+          {activeTab === 'dashboard' && (
             <div className="map-layer-controls">
               <label>
                 <input
@@ -1079,7 +1109,7 @@ function App() {
             />
 
             {/* 1. RENDER WAREHOUSES ON MAP */}
-            {(activeTab === 'logistics' ? layerVisibility.warehouses : false) && warehouses.map(wh => (
+            {(activeTab === 'dashboard' ? layerVisibility.warehouses : false) && warehouses.map(wh => (
               <Marker
                 key={`wh-${wh.warehouse_id}`}
                 position={[wh.latitude, wh.longitude]}
@@ -1103,7 +1133,7 @@ function App() {
             ))}
 
             {/* 2. RENDER VEHICLES ON MAP */}
-            {(activeTab === 'logistics' ? layerVisibility.vehicles : false) && vehicles.map(veh => (
+            {(activeTab === 'dashboard' ? layerVisibility.vehicles : false) && vehicles.map(veh => (
               <Marker
                 key={`veh-${veh.vehicle_id}`}
                 position={[veh.current_latitude, veh.current_longitude]}
@@ -1130,7 +1160,7 @@ function App() {
             ))}
 
             {/* 3. RENDER LOGISTICS DELIVERY REQUESTS ON MAP */}
-            {(activeTab === 'logistics' ? layerVisibility.requests : false) && logisticsRequests.map(req => (
+            {(activeTab === 'dashboard' ? layerVisibility.requests : false) && logisticsRequests.map(req => (
               <Marker
                 key={`req-${req.request_id}`}
                 position={[req.latitude, req.longitude]}
@@ -1159,7 +1189,7 @@ function App() {
             ))}
 
             {/* 4. RENDER SOS ALERTS ON MAP */}
-            {((activeTab === 'sos') || (activeTab === 'logistics' && layerVisibility.sosAlerts)) && 
+            {((activeTab === 'dispatch') || (activeTab === 'dashboard' && layerVisibility.sosAlerts)) && 
               alerts.filter(a => a.status !== 'CANCELLED' && a.status !== 'RESCUED').map(alert => (
                 <Marker 
                   key={`sos-map-${alert.messageId}`} 

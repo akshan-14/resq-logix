@@ -1,4 +1,6 @@
 import math
+from risk_engine.real_risk_engine import DeterministicRiskEngine
+from priority_engine.deterministic_priority_engine import DeterministicPriorityEngine
 from predict_accessibility import AccessibilityMLModel
 from predict_priority import PriorityIntelligenceModel
 
@@ -12,9 +14,14 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 class ResQDecisionEngine:
-    def __init__(self):
-        self.acc_model = AccessibilityMLModel()
-        self.pri_model = PriorityIntelligenceModel()
+    def __init__(self, mode="LIVE"):
+        self.mode = mode
+        if self.mode == "DEMO":
+            self.acc_model = AccessibilityMLModel()
+            self.pri_model = PriorityIntelligenceModel()
+        else:
+            self.acc_model = DeterministicRiskEngine()
+            self.pri_model = DeterministicPriorityEngine()
 
         # Capability mapping prototype (supports DEMO and LIVE types)
         self.capability_map = {
@@ -65,6 +72,15 @@ class ResQDecisionEngine:
         
         # Accessibility (Phase 4)
         acc_result = self.acc_model.predict(context_data)
+        
+        if acc_result.get('route_status') in ["INFEASIBLE", "INSUFFICIENT_CONTEXT"]:
+            return {
+                "request_id": req_id,
+                "recommendation_status": acc_result['route_status'],
+                "recommendation": None,
+                "reasons": acc_result.get('reasons', ["Route is infeasible or context insufficient."])
+            }
+            
         context_data['accessibility_score'] = acc_result['accessibility_score']
         context_data['accessibility_risk'] = 100 - acc_result['accessibility_score']
         

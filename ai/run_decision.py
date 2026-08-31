@@ -4,12 +4,16 @@ import json
 
 os.environ['LOGISTICS_API_URL'] = "http://localhost:3000"
 
+# Redirect stdout to stderr to prevent stray prints from breaking JSON parsing in Node
+original_stdout = sys.stdout
+sys.stdout = sys.stderr
+
 from logistics_adapter import LogisticsContextAdapter
 from decision_engine import ResQDecisionEngine
 
 def main():
     if len(sys.argv) < 2:
-        print(json.dumps({"error": "Missing request_id argument"}))
+        original_stdout.write(json.dumps({"error": "Missing request_id argument"}) + "\n")
         sys.exit(1)
         
     req_id = sys.argv[1]
@@ -22,7 +26,7 @@ def main():
         resources = adapter.get_resources()
         req = adapter.get_request(req_id)
     except Exception as e:
-        print(json.dumps({"error": str(e)}))
+        original_stdout.write(json.dumps({"error": str(e)}) + "\n")
         sys.exit(1)
         
     if 'context' not in req:
@@ -49,9 +53,9 @@ def main():
     engine = ResQDecisionEngine()
     try:
         result = engine.recommend(req, vehicles, warehouses, resources)
-        print(json.dumps(result))
+        original_stdout.write(json.dumps(result) + "\n")
     except Exception as e:
-        print(json.dumps({"error": f"Decision Engine crashed: {str(e)}"}))
+        original_stdout.write(json.dumps({"error": f"Decision Engine crashed: {str(e)}"}) + "\n")
         sys.exit(1)
 
 if __name__ == "__main__":

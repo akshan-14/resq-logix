@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 class LogisticsContextAdapter:
     """
@@ -14,7 +15,6 @@ class LogisticsContextAdapter:
         else:
             api_url = os.environ.get('LOGISTICS_API_URL')
             if api_url:
-                print(f"[LogisticsContextAdapter] LIVE mode enabled. Connecting to {api_url}")
                 import urllib.request
                 import urllib.error
                 try:
@@ -24,13 +24,13 @@ class LogisticsContextAdapter:
                         self.raw_data = res.get('data', {}) if 'data' in res else res
                     self.mode = "LIVE"
                 except urllib.error.URLError as e:
-                    print(f"[LogisticsContextAdapter] WARNING: Live connection failed ({e}). Falling back to DEMO.")
+                    sys.stderr.write(f"[LogisticsContextAdapter] WARNING: Live connection failed ({e}). Falling back to DEMO.\n")
                     self._load_demo()
                 except json.JSONDecodeError as e:
-                    print(f"[LogisticsContextAdapter] WARNING: Malformed JSON from live API ({e}). Falling back to DEMO.")
+                    sys.stderr.write(f"[LogisticsContextAdapter] WARNING: Malformed JSON from live API ({e}). Falling back to DEMO.\n")
                     self._load_demo()
                 except Exception as e:
-                    print(f"[LogisticsContextAdapter] WARNING: Unexpected error ({e}). Falling back to DEMO.")
+                    sys.stderr.write(f"[LogisticsContextAdapter] WARNING: Unexpected error ({e}). Falling back to DEMO.\n")
                     self._load_demo()
             else:
                 self._load_demo()
@@ -41,7 +41,7 @@ class LogisticsContextAdapter:
             with open(demo_path, 'r') as f:
                 self.raw_data = json.load(f)
         except Exception as e:
-            print(f"[LogisticsContextAdapter] CRITICAL ERROR: Could not load demo data: {e}")
+            sys.stderr.write(f"[LogisticsContextAdapter] CRITICAL ERROR: Could not load demo data: {e}\n")
             self.raw_data = {}
 
     def get_vehicles(self):

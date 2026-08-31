@@ -53,6 +53,19 @@ CREATE TABLE IF NOT EXISTS vehicles (
     updated_at TEXT NOT NULL
 );
 
+-- Logistics Module: Vehicle Locations Tracking
+CREATE TABLE IF NOT EXISTS vehicle_locations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    vehicle_id TEXT NOT NULL,
+    latitude REAL NOT NULL,
+    longitude REAL NOT NULL,
+    speed REAL,
+    heading REAL,
+    gps_timestamp TEXT NOT NULL,
+    server_timestamp TEXT NOT NULL,
+    FOREIGN KEY (vehicle_id) REFERENCES vehicles (vehicle_id) ON DELETE CASCADE
+);
+
 -- Logistics Module: Warehouses Table
 CREATE TABLE IF NOT EXISTS warehouses (
     warehouse_id TEXT PRIMARY KEY,
@@ -121,5 +134,6 @@ CREATE INDEX IF NOT EXISTS idx_warehouses_status ON warehouses(status);
 CREATE INDEX IF NOT EXISTS idx_resources_type_wh ON resources(resource_type, warehouse_id);
 CREATE INDEX IF NOT EXISTS idx_logistics_requests_status_prio ON logistics_requests(status, priority);
 CREATE INDEX IF NOT EXISTS idx_logistics_events_req ON logistics_events(request_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_locations_vid ON vehicle_locations(vehicle_id);
 
 

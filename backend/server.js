@@ -184,6 +184,185 @@ const logLogisticsEvent = (eventType, { requestId = null, vehicleId = null, ware
 };
 
 
+// --- DISTRICTS API ---
+
+app.get('/api/v1/districts', async (req, res) => {
+  try {
+    const script = path.resolve(__dirname, '../ai/run_district_eval.py');
+    const { stdout, stderr } = await execAsync(`python "${script}" ALL`, { encoding: 'utf-8' });
+    const result = stdout;
+    const jsonStart = result.indexOf('{');
+    const jsonEnd = result.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      const jsonStr = result.substring(jsonStart, jsonEnd + 1);
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.error) return res.status(500).json(parsed);
+      res.json(parsed);
+    } else {
+      throw new Error("No JSON found in Python output: " + result + " | stderr: " + stderr);
+    }
+  } catch (error) {
+    console.error("District Evaluation failed:", error.message);
+    res.status(500).json({ error: "Failed to evaluate districts. Details: " + error.message });
+  }
+});
+
+app.get('/api/v1/districts/:id', async (req, res) => {
+  try {
+    const script = path.resolve(__dirname, '../ai/run_district_eval.py');
+    const { stdout, stderr } = await execAsync(`python "${script}" "${req.params.id}"`, { encoding: 'utf-8' });
+    const result = stdout;
+    const jsonStart = result.indexOf('{');
+    const jsonEnd = result.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      const jsonStr = result.substring(jsonStart, jsonEnd + 1);
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.error) {
+        if (parsed.error === 'District not found') return res.status(404).json(parsed);
+        return res.status(500).json(parsed);
+      }
+      res.json(parsed);
+    } else {
+      throw new Error("No JSON found in Python output: " + result + " | stderr: " + stderr);
+    }
+  } catch (error) {
+    console.error("District Evaluation failed:", error.message);
+    res.status(500).json({ error: "Failed to evaluate district. Details: " + error.message });
+  }
+});
+
+
+// --- VEHICLE LOCATIONS ---
+
+const STALE_THRESHOLD_SECONDS = 300;
+
+app.post('/api/v1/vehicles/:id/locations', (req, res) => {
+  const { id } = req.params;
+  const locations = req.body;
+
+  if (!Array.isArray(locations) || locations.length === 0) {
+    return res.status(400).json({ error: 'Expected an array of location objects.' });
+  }
+
+  // 1. Verify vehicle exists
+  db.get('SELECT vehicle_id FROM vehicles WHERE vehicle_id = ?', [id], (err, vehicle) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!vehicle) return res.status(400).json({ error: 'Vehicle ID does not exist.' });
+
+    // 2. Validate all points
+    for (const loc of locations) {
+      if (typeof loc.latitude !== 'number' || loc.latitude < -90 || loc.latitude > 90) {
+        return res.status(400).json({ error: 'Invalid or missing latitude.' });
+      }
+      if (typeof loc.longitude !== 'number' || loc.longitude < -180 || loc.longitude > 180) {
+        return res.status(400).json({ error: 'Invalid or missing longitude.' });
+      }
+      if (!loc.gps_timestamp || isNaN(new Date(loc.gps_timestamp).getTime())) {
+        return res.status(400).json({ error: 'Invalid or missing gps_timestamp.' });
+      }
+    }
+
+    const server_timestamp = new Date().toISOString();
+    
+    // Sort locations by gps_timestamp to find the latest
+    const sortedLocations = [...locations].sort((a, b) => new Date(b.gps_timestamp).getTime() - new Date(a.gps_timestamp).getTime());
+    const latestLocation = sortedLocations[0];
+
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
+      
+      const insertStmt = db.prepare(`
+        INSERT INTO vehicle_locations (vehicle_id, latitude, longitude, speed, heading, gps_timestamp, server_timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      locations.forEach(loc => {
+        insertStmt.run([
+          id, loc.latitude, loc.longitude, loc.speed || null, loc.heading || null, loc.gps_timestamp, server_timestamp
+        ]);
+      });
+      insertStmt.finalize();
+
+      db.run(`
+        UPDATE vehicles 
+        SET current_latitude = ?, current_longitude = ?, updated_at = ?
+        WHERE vehicle_id = ?
+      `, [latestLocation.latitude, latestLocation.longitude, server_timestamp, id], (err) => {
+        if (err) {
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: 'Failed to update vehicle location' });
+        }
+        db.run('COMMIT');
+        res.status(201).json({ status: 'success', message: 'Locations saved', latest: latestLocation });
+      });
+    });
+  });
+});
+
+app.get('/api/v1/vehicles/:id/locations', (req, res) => {
+  const { id } = req.params;
+  const { since, limit } = req.query;
+  
+  let sql = 'SELECT * FROM vehicle_locations WHERE vehicle_id = ?';
+  const params = [id];
+
+  if (since) {
+    sql += ' AND gps_timestamp >= ?';
+    params.push(since);
+  }
+  
+  sql += ' ORDER BY gps_timestamp DESC';
+  
+  if (limit) {
+    sql += ' LIMIT ?';
+    params.push(Number(limit));
+  }
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.status(200).json({ status: 'success', data: rows });
+  });
+});
+
+app.get('/api/v1/vehicles/locations/latest', (req, res) => {
+  const sql = `
+    SELECT v.vehicle_id, v.current_latitude, v.current_longitude, v.vehicle_type, vl.server_timestamp, vl.gps_timestamp
+    FROM vehicles v
+    LEFT JOIN (
+      SELECT vehicle_id, server_timestamp, gps_timestamp,
+             ROW_NUMBER() OVER(PARTITION BY vehicle_id ORDER BY gps_timestamp DESC) as rn
+      FROM vehicle_locations
+    ) vl ON v.vehicle_id = vl.vehicle_id AND vl.rn = 1
+  `;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+    
+    const now = new Date().getTime();
+    const result = rows.map(row => {
+      let gps_status = 'UNAVAILABLE';
+      if (row.server_timestamp) {
+        const serverTime = new Date(row.server_timestamp).getTime();
+        const diffSeconds = (now - serverTime) / 1000;
+        gps_status = diffSeconds > STALE_THRESHOLD_SECONDS ? 'STALE' : 'LIVE';
+      }
+      
+      return {
+        vehicle_id: row.vehicle_id,
+        vehicle_type: row.vehicle_type,
+        latitude: row.current_latitude,
+        longitude: row.current_longitude,
+        server_timestamp: row.server_timestamp,
+        gps_timestamp: row.gps_timestamp,
+        gps_status
+      };
+    });
+    
+    res.status(200).json({ status: 'success', data: result });
+  });
+});
+
+
 // --- VEHICLES API ---
 
 // 1. GET /api/v1/vehicles
@@ -1112,8 +1291,62 @@ const updateLogisticsRequestHandler = (req, res) => {
     );
   });
 };
-app.patch('/api/v1/logistics/requests/:id', updateLogisticsRequestHandler);
-app.patch('/logistics/requests/:id', updateLogisticsRequestHandler);
+  app.patch('/api/v1/logistics/requests/:id', updateLogisticsRequestHandler);
+  app.patch('/logistics/requests/:id', updateLogisticsRequestHandler);
+  
+  // 5. PATCH /api/v1/logistics/requests/:id/deliver (Delivery Confirmation Loop)
+  const deliverLogisticsRequestHandler = (req, res) => {
+    const { id } = req.params;
+    const { latitude, longitude, timestamp } = req.body;
+  
+    if (latitude === undefined || longitude === undefined || !timestamp) {
+      return res.status(400).json({ error: 'Missing GPS or timestamp for delivery confirmation' });
+    }
+  
+    db.get('SELECT * FROM logistics_requests WHERE request_id = ?', [id], (err, existing) => {
+      if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+      if (!existing) return res.status(404).json({ error: `Logistics request ${id} not found` });
+      if (existing.status === 'DELIVERED') return res.status(400).json({ error: 'Request is already delivered' });
+      if (existing.status !== 'IN_TRANSIT' && existing.status !== 'ASSIGNED') {
+        return res.status(400).json({ error: `Cannot mark delivered from status ${existing.status}` });
+      }
+  
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        
+        const now = new Date().toISOString();
+        db.run(`
+          UPDATE logistics_requests 
+          SET status = 'DELIVERED', updated_at = ?, delivery_latitude = ?, delivery_longitude = ?, delivery_timestamp = ?
+          WHERE request_id = ?
+        `, [now, latitude, longitude, timestamp, id], function(err) {
+          if (err) {
+            db.run('ROLLBACK');
+            return res.status(500).json({ error: 'Failed to update request' });
+          }
+          
+          // Free the vehicle
+          if (existing.assigned_vehicle_id) {
+            db.run(`
+              UPDATE vehicles SET status = 'AVAILABLE', updated_at = ? WHERE vehicle_id = ?
+            `, [now, existing.assigned_vehicle_id], function(err2) {
+              if (err2) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: 'Failed to free vehicle' });
+              }
+              db.run('COMMIT');
+              res.status(200).json({ success: true, request_id: id, status: 'DELIVERED', vehicle_freed: existing.assigned_vehicle_id });
+            });
+          } else {
+            db.run('COMMIT');
+            res.status(200).json({ success: true, request_id: id, status: 'DELIVERED' });
+          }
+        });
+      });
+    });
+  };
+  app.patch('/api/v1/logistics/requests/:id/deliver', deliverLogisticsRequestHandler);
+  app.patch('/logistics/requests/:id/deliver', deliverLogisticsRequestHandler);
 
 
 // --- AUDIT & EVENT HISTORY API ---
@@ -1309,19 +1542,219 @@ app.get('/api/v1/logistics/ai-context', getLogisticsAIContextHandler);
 app.get('/logistics/ai-context', getLogisticsAIContextHandler);
 
 // 3. GET /api/v1/logistics/ai-recommend/:id (Runs Phase 6 Decision Engine)
-app.get('/api/v1/logistics/ai-recommend/:id', (req, res) => {
+const util = require('util');
+const execAsync = util.promisify(require('child_process').exec);
+
+app.get('/api/v1/logistics/ai-recommend/:id', async (req, res) => {
   const reqId = req.params.id;
   try {
     const script = path.resolve(__dirname, '../ai/run_decision.py');
-    const result = execSync(`python "${script}" "${reqId}"`, { encoding: 'utf-8' });
-    const parsed = JSON.parse(result.trim());
-    res.json(parsed);
+    const { stdout, stderr } = await execAsync(`python "${script}" "${reqId}"`, { encoding: 'utf-8' });
+    const result = stdout;
+    const jsonStart = result.indexOf('{');
+    const jsonEnd = result.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      const jsonStr = result.substring(jsonStart, jsonEnd + 1);
+      const parsed = JSON.parse(jsonStr);
+      res.json(parsed);
+    } else {
+      throw new Error("No JSON found in Python output: " + result + " | stderr: " + stderr);
+    }
   } catch (error) {
     console.error("AI Decision failed:", error.message);
-    res.status(500).json({ error: "Failed to generate AI recommendation." });
+    res.status(500).json({ error: "Failed to generate AI recommendation. Details: " + error.message });
   }
 });
 
+
+// --- FIELD REPORTS (MOBILE SYNC) APIs ---
+app.post('/api/v1/field-reports', (req, res) => {
+  const { report_id, report_type, severity, latitude, longitude, timestamp, description, people_affected, injured_people, reporter_id, device_id, message_id, created_offline, reporter_role, access_code } = req.body;
+
+  if (!report_id || !report_type || latitude === undefined || longitude === undefined || !severity || !timestamp) {
+    return res.status(400).json({ success: false, error: 'INVALID_FIELD_REPORT', details: 'Missing required fields' });
+  }
+  
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return res.status(400).json({ success: false, error: 'INVALID_FIELD_REPORT', details: 'Invalid coordinates' });
+  }
+  
+  const validTypes = ['ROAD_BLOCKAGE', 'BRIDGE_CONDITION', 'FLOOD_OBSERVATION', 'LANDSLIDE_OBSERVATION', 'MEDICAL_EMERGENCY', 'INJURED_PEOPLE', 'SHELTER_DEMAND', 'FOOD_SHORTAGE', 'WATER_SHORTAGE', 'MEDICINE_SHORTAGE', 'GENERAL_SOS', 'ROAD_CLEAR', 'DIFFICULT_TO_PASS', 'ROAD_BLOCKED', 'FLOODED', 'LANDSLIDE', 'BRIDGE_DAMAGED'];
+  if (!validTypes.includes(report_type)) {
+    return res.status(400).json({ success: false, error: 'INVALID_FIELD_REPORT', details: 'Invalid report type' });
+  }
+
+  const validRoles = ['GENERAL_PUBLIC', 'FIELD_RESPONDER', 'OFFICIAL'];
+  let safeRole = validRoles.includes(reporter_role) ? reporter_role : 'GENERAL_PUBLIC';
+
+  if (safeRole === 'OFFICIAL' && access_code !== 'SIH26002_DEMO') {
+    safeRole = 'FIELD_RESPONDER';
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO field_reports (report_id, message_id, report_type, severity, latitude, longitude, timestamp, description, people_affected, injured_people, reporter_id, device_id, created_offline, source, reporter_role, created_at, updated_at) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'MOBILE_APP', ?, ?, ?)
+  `);
+  
+  const now = new Date().toISOString();
+  stmt.run(report_id, message_id || null, report_type, severity, latitude, longitude, timestamp, description || null, people_affected || 0, injured_people || 0, reporter_id || null, device_id || null, created_offline ? 1 : 0, safeRole, now, now, function(err) {
+    if (err) {
+      if (err.message.includes('UNIQUE constraint failed')) {
+        return res.status(409).json({ success: false, error: 'DUPLICATE_REPORT', details: 'Report or message ID already exists' });
+      }
+      return res.status(500).json({ success: false, error: 'DATABASE_ERROR', details: 'Failed to insert report' });
+    }
+    res.status(201).json({ success: true, report_id: report_id, status: 'SYNCED', reporter_role: safeRole });
+  });
+  stmt.finalize();
+});
+
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+app.get('/api/v1/field-reports', (req, res) => {
+  const { consensus } = req.query;
+  db.all('SELECT * FROM field_reports ORDER BY timestamp DESC', [], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, error: 'DATABASE_ERROR' });
+    
+    if (consensus === 'true') {
+      const data = rows.map(r => {
+        let consensus_tier = 'UNVERIFIED'; // Default
+        
+        if (r.status === 'VERIFIED') consensus_tier = 'VERIFIED';
+        else if (r.status === 'REJECTED') consensus_tier = 'REJECTED';
+        else {
+          // Calculate UNVERIFIED consensus
+          const rTime = new Date(r.timestamp).getTime();
+          let uniqueDevices = new Set();
+          uniqueDevices.add(r.device_id || r.reporter_id || r.report_id); // Fallback identifiers
+          
+          rows.forEach(o => {
+            if (o.report_id !== r.report_id && o.report_type === r.report_type && o.status !== 'REJECTED') {
+              const oTime = new Date(o.timestamp).getTime();
+              if (Math.abs(oTime - rTime) <= 6 * 3600 * 1000) {
+                if (distanceKm(r.latitude, r.longitude, o.latitude, o.longitude) <= 2.0) {
+                  uniqueDevices.add(o.device_id || o.reporter_id || o.report_id);
+                }
+              }
+            }
+          });
+          
+          let score = uniqueDevices.size;
+          if (r.reporter_role === 'OFFICIAL') {
+            score += 1; // OFFICIAL starts equivalent to 2 independent reports (MEDIUM)
+          }
+          
+          if (score >= 3) consensus_tier = 'HIGH';
+          else if (score === 2) consensus_tier = 'MEDIUM';
+          else consensus_tier = 'LOW';
+        }
+        
+        return { ...r, consensus_tier };
+      });
+      return res.status(200).json({ success: true, count: data.length, data });
+    }
+    
+    res.status(200).json({ success: true, count: rows.length, data: rows });
+  });
+});
+
+app.get('/api/v1/field-reports/:id', (req, res) => {
+  db.get('SELECT * FROM field_reports WHERE report_id = ?', [req.params.id], (err, row) => {
+    if (err) return res.status(500).json({ success: false, error: 'DATABASE_ERROR' });
+    if (!row) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
+    res.status(200).json({ success: true, data: row });
+  });
+});
+
+app.patch('/api/v1/field-reports/:id/verify', (req, res) => {
+  const { status } = req.body;
+  if (!['VERIFIED', 'REJECTED'].includes(status)) {
+    return res.status(400).json({ success: false, error: 'Invalid verification status' });
+  }
+  
+  db.run('UPDATE field_reports SET status = ?, verified_at = ? WHERE report_id = ?', 
+    [status, new Date().toISOString(), req.params.id], function(err) {
+      if (err) return res.status(500).json({ success: false, error: 'DATABASE_ERROR' });
+      if (this.changes === 0) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
+      res.json({ success: true, report_id: req.params.id, status });
+  });
+});
+
+// --- WHAT-IF SIMULATION API ---
+app.post('/api/v1/simulate/whatif', async (req, res) => {
+  const { type, lat, lon, radius_km, duration_hours } = req.body;
+  if (!type || lat === undefined || lon === undefined || !radius_km) return res.status(400).json({ error: 'Missing simulation params' });
+  
+  try {
+    const simulationOverride = { type, lat, lon, radius_km, duration_hours };
+    const script = path.resolve(__dirname, '../ai/run_district_eval.py');
+    
+    // Escape quotes for command line
+    const jsonStr = JSON.stringify(simulationOverride);
+    const escapedJsonStr = process.platform === 'win32' ? jsonStr.replace(/"/g, '\\"') : `'${jsonStr}'`;
+    
+    const { stdout } = await execAsync(`python "${script}" ALL "${escapedJsonStr}"`, { encoding: 'utf-8' });
+    
+    const jsonStart = stdout.indexOf('{');
+    const jsonEnd = stdout.lastIndexOf('}');
+    let distData = { data: [] };
+    if (jsonStart !== -1 && jsonEnd !== -1) {
+      distData = JSON.parse(stdout.substring(jsonStart, jsonEnd + 1));
+    }
+    
+    const vehs = await new Promise((resolve, reject) => db.all('SELECT * FROM vehicles', [], (e,r) => e?reject(e):resolve(r)));
+    const reqs = await new Promise((resolve, reject) => db.all('SELECT * FROM logistics_requests WHERE status NOT IN ("DELIVERED", "CANCELLED")', [], (e,r) => e?reject(e):resolve(r)));
+    
+    const affectedVehicles = vehs.filter(v => distanceKm(lat, lon, v.current_latitude, v.current_longitude) <= radius_km);
+    const affectedRequests = reqs.filter(r => distanceKm(lat, lon, r.latitude, r.longitude) <= radius_km);
+    
+    // Calculate REAL alternative route via OSRM
+    let start_lat = 26.1445; // Guwahati Hub
+    let start_lon = 91.7362;
+    let end_lat = 24.8333;   // Silchar
+    let end_lon = 92.7789;
+    
+    if (affectedRequests.length > 0) {
+      end_lat = affectedRequests[0].latitude;
+      end_lon = affectedRequests[0].longitude;
+    }
+
+    const routingScript = path.resolve(__dirname, '../ai/data_pipeline/fetchers/routing_api.py');
+    const { stdout: routeStdout } = await execAsync(`python "${routingScript}" ${start_lat} ${start_lon} ${end_lat} ${end_lon} ${lat} ${lon} ${radius_km}`, { encoding: 'utf-8' });
+    
+    let altRouteData = { alternative_route_available: false };
+    try {
+      const parsed = JSON.parse(routeStdout.trim());
+      if (parsed.status === 'SUCCESS') {
+        altRouteData = parsed.data;
+      }
+    } catch(e) {
+      console.error("Failed to parse routing output:", routeStdout);
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        affected_districts: distData.data,
+        affected_vehicles: affectedVehicles,
+        affected_requests: affectedRequests,
+        alternative_route: altRouteData
+      }
+    });
+  } catch(e) {
+    console.error("Simulation error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Backend API listening on port ${port}`);
