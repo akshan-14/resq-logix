@@ -43,7 +43,6 @@
           "bluetoothAlwaysPermission": "ResQ needs Bluetooth to form an offline mesh network."
         }
       ],
-      "expo-dev-client",
       "expo-localization"
     ],
     "web": {},
