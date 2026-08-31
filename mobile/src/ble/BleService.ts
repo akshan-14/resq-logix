@@ -32,7 +32,7 @@ export type BleStatus = {
 };
 
 export class BleService {
-  private bleManager: BleManager;
+  private bleManager: BleManager | any;
   private knownMessageIds = new Set<string>();
   
   // Stats
@@ -52,12 +52,9 @@ export class BleService {
   private onLogCb?: (msg: string) => void;
 
   constructor() {
-    this.bleManager = new BleManager();
+    this.log('BleManager instantiation delayed to prevent Android 12 crash.');
     this.log('BleManager initialized');
-    this.bleManager.onStateChange((state) => {
-      this.status.isBluetoothEnabled = state === State.PoweredOn;
-      this.notifyStatus();
-    }, true);
+    
   }
 
   public setCallbacks(onReportReceived: (report: FieldReport, hopCount: number) => void, onStatusChange: (status: BleStatus) => void, onLog?: (msg: string) => void) {
@@ -105,6 +102,14 @@ export class BleService {
     return hash.toString(16);
   }
 
+  
+  public async initialize() {
+    if (!this.bleManager) {
+        this.bleManager = new BleManager();
+        
+    }
+  }
+
   public async startScanning() {
     const hasPerms = await this.requestPermissions();
     if (!hasPerms) {
@@ -115,10 +120,11 @@ export class BleService {
 
     if (this.status.isScanning) return;
     this.status.isScanning = true;
+    await this.initialize();
     this.log('Started BLE Scanning');
     this.notifyStatus();
 
-    this.bleManager.startDeviceScan(
+    if(this.bleManager) this.bleManager.startDeviceScan(
       [RESQ_SERVICE_UUID], 
       { allowDuplicates: false }, 
       async (error, device) => {
@@ -138,7 +144,7 @@ export class BleService {
   }
 
   public stopScanning() {
-    this.bleManager.stopDeviceScan();
+    if(this.bleManager) this.bleManager.stopDeviceScan();
     this.status.isScanning = false;
     this.notifyStatus();
   }
@@ -296,7 +302,7 @@ export class BleService {
   public cleanup() {
     this.stopScanning();
     this.stopAdvertising();
-    this.bleManager.destroy();
+    if(this.bleManager) this.bleManager.destroy();
   }
 }
 
