@@ -1060,7 +1060,20 @@ function App() {
         {/* ========================================================= */}
         {/* INTERACTIVE MAP CONTAINER                                 */}
         {/* ========================================================= */}
-        <main className="map-container" style={{ display: ['dashboard', 'dispatch'].includes(activeTab) ? 'block' : 'none' }}>
+        <main className="map-container" style={{ display: ['dashboard', 'dispatch'].includes(activeTab) ? 'block' : 'none', position: 'relative' }}>
+          
+          <AlertCenter 
+            vehicles={vehicles} 
+            sosAlerts={alerts} 
+            onSelectVehicle={(id) => setSelectedVehicleId(id)}
+            onSelectSos={(id) => {}} 
+          />
+          <VehicleDetailPanel 
+            vehicle={vehicles.find(v => v.vehicle_id === selectedVehicleId)} 
+            onClose={() => setSelectedVehicleId(null)}
+            API_BASE={API_BASE} 
+          />
+
           {/* Map Layer Visibility Controls */}
           {activeTab === 'dashboard' && (
             <div className="map-layer-controls">
