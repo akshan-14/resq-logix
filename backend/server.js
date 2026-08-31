@@ -232,6 +232,65 @@ app.get('/api/v1/districts/:id', async (req, res) => {
 });
 
 
+
+// --- SSE REAL-TIME VEHICLE STREAMING ---
+let sseClients = [];
+let sseInterval = null;
+
+const broadcastVehicles = () => {
+  if (sseClients.length === 0) return;
+  const sql = `
+    SELECT v.*, 
+           lr.request_id as mission_id, 
+           lr.destination as mission_destination,
+           lr.latitude as destination_lat,
+           lr.longitude as destination_lng,
+           lr.requested_resource as cargo,
+           lr.quantity as cargo_quantity,
+           lr.unit as cargo_unit,
+           lr.priority as cargo_priority
+    FROM vehicles v
+    LEFT JOIN logistics_requests lr 
+      ON v.vehicle_id = lr.assigned_vehicle_id 
+      AND lr.status IN ('ASSIGNED', 'IN_TRANSIT')
+  `;
+  db.all(sql, [], (err, rows) => {
+    if (err) return;
+    const payload = JSON.stringify({ type: 'VEHICLES_UPDATE', data: rows });
+    sseClients.forEach(client => client.res.write(`data: ${payload}
+
+`));
+  });
+};
+
+app.get('/api/v1/live/vehicles', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); 
+
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED' })}
+
+`);
+
+  const clientId = Date.now();
+  const newClient = { id: clientId, res };
+  sseClients.push(newClient);
+
+  if (sseClients.length === 1 && !sseInterval) {
+    sseInterval = setInterval(broadcastVehicles, 1500);
+  }
+
+  req.on('close', () => {
+    sseClients = sseClients.filter(client => client.id !== clientId);
+    if (sseClients.length === 0 && sseInterval) {
+      clearInterval(sseInterval);
+      sseInterval = null;
+    }
+  });
+});
+
+
 // --- VEHICLE LOCATIONS ---
 
 const STALE_THRESHOLD_SECONDS = 300;
@@ -368,23 +427,38 @@ app.get('/api/v1/vehicles/locations/latest', (req, res) => {
 // 1. GET /api/v1/vehicles
 const getVehiclesHandler = (req, res) => {
   const { status, vehicle_type, availability } = req.query;
-  let sql = 'SELECT * FROM vehicles WHERE 1=1';
+  let sql = `
+    SELECT v.*, 
+           lr.request_id as mission_id, 
+           lr.destination as mission_destination,
+           lr.latitude as destination_lat,
+           lr.longitude as destination_lng,
+           lr.requested_resource as cargo,
+           lr.quantity as cargo_quantity,
+           lr.unit as cargo_unit,
+           lr.priority as cargo_priority
+    FROM vehicles v
+    LEFT JOIN logistics_requests lr 
+      ON v.vehicle_id = lr.assigned_vehicle_id 
+      AND lr.status IN ('ASSIGNED', 'IN_TRANSIT')
+    WHERE 1=1
+  `;
   const params = [];
 
   if (status) {
-    sql += ' AND status = ?';
+    sql += ' AND v.status = ?';
     params.push(status.toUpperCase());
   }
   if (vehicle_type) {
-    sql += ' AND vehicle_type LIKE ?';
+    sql += ' AND v.vehicle_type LIKE ?';
     params.push(`%${vehicle_type}%`);
   }
   if (availability !== undefined) {
-    sql += ' AND availability = ?';
+    sql += ' AND v.availability = ?';
     params.push(Number(availability));
   }
 
-  sql += ' ORDER BY vehicle_id ASC';
+  sql += ' ORDER BY v.vehicle_id ASC';
 
   db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: 'Database error fetching vehicles', details: err.message });

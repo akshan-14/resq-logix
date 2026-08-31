@@ -3,9 +3,12 @@ import HistoricalAnalyticsPanel from './components/HistoricalAnalyticsPanel';
 import SimulatorPanel from './components/SimulatorPanel';
 import NetworkPanel from './components/NetworkPanel';
 import InventoryPanel from './components/InventoryPanel';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import './App.css';
+import VehicleSidebar from './components/VehicleSidebar';
+import VehicleDetailPanel from './components/VehicleDetailPanel';
+import AlertCenter from './components/AlertCenter';
 
 // Fix Leaflet default marker icon issue in React
 delete L.Icon.Default.prototype._getIconUrl;
@@ -142,7 +145,7 @@ function App() {
   const fetchLogistics = async () => {
     try {
       const [vehRes, whRes, resRes, reqRes, sumRes, aiRes, evtRes] = await Promise.all([
-        fetch(`${API_BASE}/vehicles`),
+        /* fetch(`${API_BASE}/vehicles`) removed for SSE */
         fetch(`${API_BASE}/warehouses`),
         fetch(`${API_BASE}/resources`),
         fetch(`${API_BASE}/logistics/requests`),
@@ -1132,12 +1135,23 @@ function App() {
               </Marker>
             ))}
 
-            {/* 2. RENDER VEHICLES ON MAP */}
+            
+              {/* HISTORICAL POLYLINE */}
+              {selectedVehicleId && selectedVehicleHistory.length > 0 && (
+                <Polyline 
+                  positions={selectedVehicleHistory.map(h => [h.latitude, h.longitude])} 
+                  color="#3b82f6" 
+                  weight={4} 
+                  dashArray="10, 10" 
+                  opacity={0.8} 
+                />
+              )}
+{/* 2. RENDER VEHICLES ON MAP */}
             {(activeTab === 'dashboard' ? layerVisibility.vehicles : false) && vehicles.map(veh => (
               <Marker
                 key={`veh-${veh.vehicle_id}`}
                 position={[veh.current_latitude, veh.current_longitude]}
-                icon={createPinIcon(getVehicleEmoji(veh.vehicle_type), getVehiclePinClass(veh.status))}
+                icon={createPinIcon(getVehicleEmoji(veh.vehicle_type), getVehiclePinClass(veh.status), veh.heading)}
               >
                 <Popup>
                   <div style={{ minWidth: '180px' }}>
